@@ -1,8 +1,16 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
+
+
+
 
 app=FastAPI()
 
-task={}
+class TaskCreate(BaseModel):
+    title:str
+
+
+tasks={}
 task_id=1
 
 @app.get("/")
@@ -10,25 +18,28 @@ async def root():
     return {"message":"Hello World"}
 
 @app.post("/tasks")
-async def new_task(title:str):
+async def new_task(task:TaskCreate):
+    """
+    Create new task
+    """
     global task_id
 
     task={
         "id": task_id,
-        "title": title,
+        "title": task.title,
         "completed": False
     }
-    task[task_id]= task
+    tasks[task_id]= new_task
     task_id += 1
-    return task
+    return new_task
 
 @app.get("/tasks")
-async def view():
-    return task
+async def get_task():
+    return tasks
 
 @app.get("/tasks/{id}")
-async def indvidual(id:int):
-    task=task.get(id)
+async def get_task(id:int):
+    task=tasks.get(id)
     if task:
         return task
     return {"error":"task not found" }
@@ -37,8 +48,8 @@ async def indvidual(id:int):
 
 @app.delete("/tasks/{id}")
 async def delete_task(id: int):
-    if id in task:
-       deleted = task.pop(id)
+    if id in tasks:
+       deleted = tasks.pop(id)
        return {"message": "Task deleted", "task": deleted}
 
     return {"error": "Task not found"}
@@ -46,7 +57,7 @@ async def delete_task(id: int):
 @app.patch("/tasks/{task_id}")
 async def complete_task(task_id: int):
 
-    task = task.get(task_id)
+    task = tasks.get(task_id)
 
     if task:
         task["completed"] = True
