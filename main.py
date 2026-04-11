@@ -1,66 +1,80 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, status
+from schema import TaskCreate,TaskResponse
+
+app = FastAPI()
 
 
 
+tasks = {
+    1: {"id": 1, "title": "Buy groceries", "completed": False},
+    2: {"id": 2, "title": "Finish report", "completed": True},
+}
 
-app=FastAPI()
+current_id = 3
 
-class TaskCreate(BaseModel):
-    title:str
-
-
-tasks={}
-task_id=1
 
 @app.get("/")
 async def root():
-    return {"message":"Hello World"}
+    return {"message": "Hello World"}
 
-@app.post("/tasks")
-async def new_task(task:TaskCreate):
-    """
-    Create new task
-    """
-    global task_id
 
-    task={
-        "id": task_id,
+@app.post("/tasks", response_model=TaskResponse)
+async def new_task(task: TaskCreate):
+    global current_id
+
+    new_task = {
+        "id": current_id,
         "title": task.title,
         "completed": False
     }
-    tasks[task_id]= new_task
-    task_id += 1
+
+    tasks[current_id] = new_task
+    current_id += 1
+
     return new_task
 
-@app.get("/tasks")
-async def get_task():
-    return tasks
 
-@app.get("/tasks/{id}")
-async def get_task(id:int):
-    task=tasks.get(id)
-    if task:
-        return task
-    return {"error":"task not found" }
+@app.get("/tasks", response_model=list[TaskResponse])
+async def get_all_tasks():
+    return list(tasks.values())
 
 
-
-@app.delete("/tasks/{id}")
-async def delete_task(id: int):
-    if id in tasks:
-       deleted = tasks.pop(id)
-       return {"message": "Task deleted", "task": deleted}
-
-    return {"error": "Task not found"}
-    
-@app.patch("/tasks/{task_id}")
-async def complete_task(task_id: int):
-
+@app.get("/tasks/{task_id}", response_model=TaskResponse)
+async def get_task(task_id: int):
     task = tasks.get(task_id)
 
-    if task:
-        task["completed"] = True
-        return task
+    if task is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
 
-    return {"error": "Task not found"}
+    return task
+
+
+@app.delete("/tasks/{task_id}")
+async def delete_task(task_id: int):
+    task = tasks.get(task_id)
+
+    if task is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+
+    tasks.pop(task_id)
+    return {"message": "Task deleted"}
+
+
+@app.patch("/tasks/{task_id}", response_model=TaskResponse)
+async def complete_task(task_id: int):
+    task = tasks.get(task_id)
+
+    if task is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+
+    task["completed"] = True
+    return task
